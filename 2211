@@ -1,0 +1,1053 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <dos.h>
+#include <math.h>
+#include <conio.h>
+#include <string.h>
+#include <ctype.h>
+
+static char klawisz, kla;
+//int klawisz;
+FILE *f;
+int rejestruj = 0;
+int pojed = 0;
+int option = 1;
+long int i = 0;
+int j = 0;
+double tsym = 0.125;///0.01;//0.10 czas symulacji
+double trys = 1.0;///0.1;//1.5; czas rysowania
+double czasrys = 9999.0; // max czas rysowania
+double czas = 0.0; // aktualny czas rysowania
+
+		  /// OBieg CHLODZONY
+double N = 0.0; // obroty silnika
+double Qsil = 0.4; // strumien ciepla
+double Vsil = 10.0; // pojemnosc silnika
+double Rsil = 10.0; // opory hydrauliczne
+double tempq2pom = 0.0; // ????
+int typregq2 = 7;   /// 0 => q2(progi tq2d) ???? typ regulatora
+		  /// 1 => q2(blad temp)
+		  /// 2 => q2(Qsil)
+		  /// 3 => q2(Qsil)
+		  /// 4 => regq2()
+		  /// 5 => q2(tempq2dA)
+          /// 6 => q2(tempq2dA)
+		  /// 7 => q2 = 1.0
+double wzmq2 = 9;  //0.010; // ?
+double tempq2dzad = 80.0; // temp. zadana
+double q2 = 0.0; // przeplyw w drugim obiegu
+double q2min = 0.05; // min wartosc q2
+//double q21 = 0.05; // warianty predkosci przeplywu
+//double q22 = 0.33;
+//double q23 = 0.66;
+//double q24 = 1.0;
+//double tempq2gr1 = 50.0; // ??? rozne warianty temperatur granicznych
+//double tempq2gr2 = 60.0;
+//double tempq2gr3 = 70.0;
+//double tempq2gr4 = 80.0;
+double tempq2osil1 = 0.0; // temperatura drugiego obiegu na odplywie silnika 1 ???
+double tempq2osil2 = 0.0; // temperatura drugiego obiegu na odplywie silnika 2 ?????
+double Tsil1 = 1.0;      // ?
+double Tsil10 = 1.0;
+double Tsil2 = 1.0;
+double Tsil20 = 1.0;
+double Tsil30 = 2.0;
+double Tsil3 = 2.0;
+double Qsil1 = 0.0;
+
+double tempq2d = 0.0;
+double tempq2o = 0.0;
+
+		    // konfuguracja wymiennikow
+int konfigwym2 = 1;   // 	1= A; 2= A>B (przeplyw z A do B): 3= B>A; 4= A+B;
+int konfigwym1 = 1;   // 	1= A; 2= A>B; 3= B>A  4= A+B;
+
+	//================= OBIEG CHLODZACY
+int typregq1 = 0; // typ regulacji przeplywu obiegu chlodzacego
+
+	//================= WYMIENNIK A
+double Vrura1dA = 1.0;    	 // cm3/dl   ????JAKA ROZNICA POMIEDZYTA ZMIENNA A NIZSZA????
+double Vrura1oA = 1.0;         // cm3/dl PREDKOSC PRZEPLYWU
+double temprura1dA[501];         // deg    TABLICA TEMPERATUR w poszczegolnych fragmentach rury
+double temprura1oA[501];         // deg     ?
+double Vwym1A = 100.0;    	 // cm3        OBJETOSC WYMIENNIKA 1A
+double tempwym1A = 1.0;            // deg    ? czego to temp ????
+int dlurura1dA = 10;  		 // < 501 !!!!!!!!!!!!!!!! dlugosc rury
+int dlurura1oA = 10;  		 // < 501 !!!!!!!!!!!!!!!!
+
+double Vrura2dA = 1.0;    	 // cm3/dl
+double Vrura2oA = 1.0;             // cm3/dl
+double temprura2dA[501];         // deg
+double temprura2oA[501];         // deg
+double Vwym2A = 100.0;    	 // cm3         POJEMNOSC WYMIENNIKA 2A
+double tempwym2A = 1.0;            // deg
+int dlurura2dA = 10;                // < 501 !!!!!!!!!!!!!!!!
+int dlurura2oA = 10;                // < 501 !!!!!!!!!!!!!!!!
+
+int dlupom2A = 5;      // ???
+double tempq2pomA = 0.0; // temp. pompy wymiennika A
+
+double q1A = 0.0;   // przeplyw obiegu pierwszego
+double tempq1dA = 10.0;      	 /// 0 <=  <= 32 czego  temp. doplyw obwodu 1 wymiennika A - woda zaburtowa
+double tempq1oA = 0.0;   // temp. na odsplywie obwodu 1
+
+double q2A = 0.0;   // przeplyw obwodu drugiego
+double tempq2dA = 0.0;
+double tempq2oA = 0.0;
+
+double lambdaA = 0.5; //0.1; wspolczynnik przewodzenia ciepla (przewodzenie ciepla bez ruchu cieczy)
+double a1A = 0.1; // ?
+double a2A = 0.1; // ?
+
+double Rrura1dA = 0.010; // rezystancja rury doplywu do wymiennika obwodu pierwszego
+double Rrura1oA = 0.010; //
+double Rwym1A = 0.001; //
+double R1A = 0.0; // rezystancja zastepcza obwodu pierwszego
+
+double Rrura2dA = 0.010;
+double Rrura2oA = 0.010;
+double Rwym2A = 0.001;
+double R2A = 0.0;
+
+	//================= WYMIENNIK B
+double Vrura1dB = 1.0;   		 // cm3/dl
+double Vrura1oB = 1.0;             // cm3/dl
+double temprura1dB[501];         // deg
+double temprura1oB[501];         // deg
+double Vwym1B = 100.0;    	 // cm3
+double tempwym1B = 1.0;            // deg
+int dlurura1dB = 10;  		 // < 501 !!!!!!!!!!!!!!!!
+int dlurura1oB = 10;  		 // < 501 !!!!!!!!!!!!!!!!
+int dlupom2B = 5;
+
+double Vrura2dB = 1.0;    	 // cm3/dl
+double Vrura2oB = 1.0;             // cm3/dl
+double temprura2dB[501];         // deg
+double temprura2oB[501];         // deg
+double Vwym2B = 100.0;    	 // cm3
+double tempwym2B = 1.0;            // deg
+int dlurura2dB = 10;                // < 501 !!!!!!!!!!!!!!!!
+int dlurura2oB = 10;                // < 501 !!!!!!!!!!!!!!!!
+double tempq2pomB = 0.0;
+
+double q1B = 0.0;
+double tempq1dB = 2.0;      	// 0 <=  <= 32
+double tempq1oB = 0.0;
+
+double q2B = 0.0;
+double tempq2dB = 0.0;
+double tempq2oB = 0.0;
+
+double lambdaB = 0.5;
+double a1B = 0.1;
+double a2B = 0.1;
+
+double Rrura1dB = 0.01;
+double Rrura1oB = 0.01;
+double Rwym1B = 0.001;
+double R1B = 0.0;
+
+double Rrura2dB = 0.01;
+double Rrura2oB = 0.01;
+double Rwym2B = 0.001;
+double R2B = 0.0;
+
+/////////////////////////////////
+
+double R1 = 0.0; // rezystancja zastepcza obwodu pierwszego
+double R2 = 0.0;
+
+double C1 = 0.1; // cieplo
+double C2 = 0.1;
+double dC = 0.0;
+
+double temppocz = 10.0; // temp. poczatkowa
+
+double freq = 0.0; // czestotliwosc .. czego ?
+double freqmin = 0.05;
+
+double obr = 0.0; // obroty
+double wzmpomp = 1.0; // wzmocnienie pompy ???
+double q1 = 0.0; // przeplyw obwodu pierwszego
+double q1min = 0.01;
+
+double tempq1d = 0.0; // temp. doplywu wody calkowitego obiegu 1
+double pomA = 0.0; //
+double pomB = 0.0;
+double pomC = 0.0;
+double pompom = 0.0; // ????
+
+double tempq1o = 0.0; // temp. ????
+
+double Ts1 = 0.0; // stale czasowe silnika
+double Ts2 = 0.0;
+double obr1 = 0.0;
+double obrmin = 0.01;
+double obrmax = 20;
+			   // regulator badany   ????????????
+int typreg = 0;              // 1: R(t2o)  2: R(t1o)  ????????????????
+double xzad = 36.0;          // =36 wartosc zadana (temp. wody w obiegu chlodzonym)
+double xregmax = 100.0;
+double xregmin = 0.0;
+double Kp = 0.5; //1.0; // wzmocnienie sygnalu
+double Ti = 440.0;      // 2*taumax // czas calkowania
+double Td = 80.0; //110.0;      // 0.5*taumax // czas wyprzedzenia
+double Udmax = 10.0;    // maksymalna wartosc POCHODNEJ sygnalu sterujacego
+double Udmin = -10.0;
+double Uimax = 1.0;  // maksymalna wartosc czlonu calkujacego ????
+double Uimin = 0.05;
+double Umax = 1.0; // maksymalna wartosc sygnalu sterujacego
+double Umin = 0.05;
+double Tp = 0.1;  // czas probkowania
+int inverse = 1;  // flaga - odwrocenie
+int antiwindup = 2;     //1 ant, 2=kl.nasyc (przypisywanie wartosci skrajnych)
+int nasycD = 1; // ???
+
+double czasreg = 999.9; // max czas regulacji
+double xreg = 0.0;
+double xregwew = 0.0; // wartosc sygnalu wejsciowego regulatora po przeskalowaniu
+double xzadwew = 0.0;
+double E = 0.0; // sygnal bledu
+double popE = 0.0; // wartosc poprzednia E
+double dE = 0.0; // pochodna E
+double Ud1 = 0.0; // ???
+double Ud = 0.0;
+double Up = 0.0;
+double dUi = 0.0;
+double Ui = 0.0;
+double uregwew = 0.0; // sygnal sterujacy regulatora poddawany obliczeniom
+double ureg = 0.0; // wartosc wyjsciowa sygnalu sterujacego
+
+double tauA = 0.0;
+double tauB = 0.0;
+
+/// regulator q1
+double Kwar1 = 1.0; // wspolczynnik do sterowania obrotami pompy2 w wariancie 1
+double Kwar2 = 1.0, a = 0.1, b = 0.2;
+int wariant_ster = 0;
+
+// menu
+int flag = 0;
+char tempenter;
+
+
+///////////////////////////////////////////////////
+void pid_1(void)
+{
+//    switch(wariant_ster)
+//    {
+//    case 0:
+//        q2 = 1;  // OBROTY POMPY 2 POWINNY BYC;
+//        break;
+//    case 1:
+//        q2 = Kwar1 * tempq2dA / 100.0; // temp. wody zaburtowej wplywajacej do wymiennika
+//        break;
+//    case 2:
+//        q2 = Kwar2 * Qsil;
+//        break;
+//    case 3:
+//        q2 = (tempq2osil1 + tempq1oA * Qsil) / 100.0 * temprura2dA[dlurura2dA]; // NARAZIE tempq2osil1 oraz N SIE NIE ZMIENIAja, tempq1oA temp. wody wplywajacej do silnika
+//        break;
+//    default: wariant_ster = 0;
+//    };
+
+//    double Kd = Td;
+
+   xregwew = (xreg - xregmin) / (xregmax - xregmin); // przeskalowanie wartosci regulatora
+   xzadwew = (xzad - xregmin) / (xregmax - xregmin); // przeskalowanie wartosci zadanej
+
+   E = xzadwew - xregwew; // sygnal bledu
+
+   Up = E * Kp; // sygnal sterujacy ( P )
+   dE = E - popE; // roznica pomiedy kolejnymi wartosciami sygnalu bledu
+//   Ud1 = dE * Kp * Td / Tp; // sygnal sterujacy z czlonem rozniczkujacym
+   Ud1 = dE * Kp * Td;
+   popE = E; // poprzednia wartosc sygnalu bledu
+   Ud = Ud1; // przypisanie wartosci sygnalu sterujacego
+
+   if (nasycD) // uniemozliwienie wyjscia poza wartosci graniczne sygnalu czlonu rozniczkujacego
+      {
+      if(Ud > Udmax)
+        Ud = Udmax;
+	  else
+	  {
+	    if (Ud < Udmin)
+	    Ud = Udmin;
+	  };
+      };
+
+   if (Ti == 0.0)   // wylaczenie czlonu calkujacego  ??
+      Ui = 0.0;
+   else
+      {
+      dUi = E * Tp * Kp / Ti;
+      Ui += dUi; // przyrost wartosci uchybu
+
+      switch(antiwindup)
+	  {
+	  case 0: break;
+	  case 1: if (Ui > (Umax - Up - Ud))
+		          Ui = Umax - Up - Ud;  // zmniejszam wartosc zliczonego uchybu
+		      else
+		          if (Ui < (Umin - Up - Ud))
+			          Ui = Umin - Up - Ud;
+		      break;
+	  case 2: if (Ui > Uimax)
+		          Ui = Uimax; // obnizenie do maksymalnej wartosci
+		      else
+		          if (Ui < Uimin)
+			          Ui = Uimin;
+		      break;
+	  default: break;
+	  };
+    };
+
+   uregwew = Up + Ud + Ui;
+   if (uregwew > Umax)
+      uregwew = Umax;
+   else
+      if (uregwew < Umin)
+          uregwew = Umin;
+   ureg = uregwew;
+
+   if (inverse) // konieczna inwersja, gdyz im mniejszy blad tym wyzsze powinny byc obroty pompy, aby temp. nie wzrastala za bardzo
+      {
+      ureg = Umax - (ureg - Umin);
+      };
+   };
+
+/////////////////////////////////////
+void falownik1(void)
+   {
+   freq = ureg;
+   if (freq < freqmin)
+       freq = freqmin;
+   };
+
+   ///////////////////////////////////////////////////////////
+    void nadysk(void)
+    {
+    time_t akt_czas; // aktualny czas zapisany w sekundach
+    struct tm * timeinfo; // https://www.tutorialspoint.com/c_standard_library/c_function_localtime.htm
+    time ( &akt_czas );
+    timeinfo = localtime ( &akt_czas );
+//    printf ( "\nCurrent local time and date: %s", asctime (timeinfo) );
+
+    f = fopen("C:\\Users\\Karol\\Desktop\\kodowanko\\WymCiep02\\data.txt","a+"); //"a+" - otwiera plik do dopisywania i odczytu (jeœli plik nie istnieje, to jest tworzony)
+    fprintf(f,"\n%s konfigwym1 = %u\t konfigwym2 = %u\t typreg = %u\t czas = %f\t q1 = %f\t tempq1d = %f\t tempq1o = %f\t q2 = %f\t tempq2d = %f\t tempq2o = %f\n\n",asctime(timeinfo),konfigwym1,konfigwym2,typreg,czas,q1,tempq1d,tempq1o,q2,tempq2d,tempq2o);
+    fclose(f);
+    };
+
+
+///////////////////////////////////////////////////////
+void menu(void)
+{
+    switch(option)
+    {
+    case 0:
+     if(kbhit())
+     {
+        flag = scanf("%d%c",&option,&tempenter);
+ //       if((option != 0) && (option != 1) && (option != 2) && (option != 3) && (option != 4) && (option != 5))
+        if(flag != 2)
+        {
+            while (getchar()!='\n'); // czyszczenie wejscia
+            printf("\nWybrano zla opcje!\nCzekam na instrukcje:");
+            option = 0;
+        }
+     }
+
+        break;
+    case 1:
+        printf("\nMenu: \n1: Powrot do menu \n2: Widok aktualnych wartosci zmiennych \n3: Dopuszczalne opcje konfiguracji \n4: Konfiguracja \n5: Wlacz/Wylacz zapis danych na dysku\n");
+        printf("\nCzekam na instrukcje: ");
+        option = 0; break;
+    case 2:
+        printf("\nWidok aktualnych wartosci zmiennych:\n");
+        printf("konfigwym1 = %i \nkonfigwym2 = %i\nQsil = %f \nq2 = %f\ntempq2d = %f\ntrys = %f",konfigwym1,konfigwym2,Qsil,q2,tempq2d,trys);
+        option = 1; break;
+    case 3:
+        printf("\nDopuszczalne opcje konfiguracji:\n");
+        printf("WYMIENNIK 1\n'1': konfigwym1 = 1; R1 = R1A;\n'2': konfigwym1 = 2\n'3': konfigwym1 = 3; R1 = R1A + R1B;\n'4': konfigwym1 = 4; R1 = R1A * R1B / (R1A + R1B)\nWYMIENNIK 2\n'5': konfigwym2 = 1; R2 = Rsil + R2A;  \n'6': konfigwym2 = 2\n'7': konfigwym2 = 3; R2 = Rsil + R2A + R2B\n'8': konfigwym2 = 4; R2 = Rsil + R2A * R2B / (R2A + R2B)\ndefault: R2 = Rsil + R2A\n");
+        printf("-----------\n'a': Qsil = 0.0; \n's': Qsil = 0.05; \n'd': Qsil = 0.25; \n'f': Qsil = 0.50; \n'g': Qsil = 0.75; \n'h': Qsil = 1.0;\n");
+        printf("-----------\n'e': wariant_ster = PID + nP2(max);\n'r': wariant_ster = PID + nP2(C);\n't': wariant_ster = PID + nP2(N);\n'y': wariant_ster = PID + nP2(C,N);\n'u': wariant_ster = PID + PID;\n");
+        printf("-----------\n'z': q2 = 0.0; tempq2d = 10.0; \n'x': q2 = 0.1;tempq2d = 100.0;\n'c': q2 = 0.5;tempq2d = 100.0;\n'v': q2 = 1.0;tempq2d = 100.0;\n");
+        printf("-----------\n'b': trys = 1.0 * tsym;\n'b': trys = 1.0 * tsym;\n'n': trys = 5.0 * tsym;\n'm': trys = 10.0 * tsym;\n',': trys = 50.0 * tsym;\n'.': trys = 100.0 * tsym;\n'/': trys = 500.0 * tsym;\n'\'': trys = 1000.0 * tsym;\n");
+        option = 1; break;
+    case 4:
+        printf("\nKONFIGURACJA:\n");
+        printf("'1': konfigwym1 = 1; R1 = R1A;\n'2': konfigwym1 = 2\n'3': konfigwym1 = 3; R1 = R1A + R1B;\n'4': konfigwym1 = 4; R1 = R1A * R1B / (R1A + R1B)\n'5': konfigwym2 = 1; R2 = Rsil + R2A;  \n'6': konfigwym2 = 2\n'7': konfigwym2 = 3; R2 = Rsil + R2A + R2B\n'8': konfigwym2 = 4; R2 = Rsil + R2A * R2B / (R2A + R2B)\ndefault: R2 = Rsil + R2A\n\n");
+        klawiatura();
+        option = 1; break;
+    case 5:
+        if(rejestruj == 0)
+        {
+           rejestruj = 1;
+           printf("\nWlaczono zapis danych na dysku...\n");
+        }
+        else
+        {
+            rejestruj = 0;
+            printf("\nWylaczono zapis danych na dysku...\n");
+        }
+        option = 1; break;
+    default: option = 1;
+    }
+}
+
+
+//////////////////////////////////////
+void klawiatura(void)
+{
+//     if(!kbhit())
+//        klawisz = tolower(getch());
+//     else
+//        klawisz = ' ';
+
+    do
+    {
+    printf("\nAby powrocic nacisnij 'w'.\nWybierz kofiguracje: ");
+    klawisz = tolower(getch());
+    printf("\nWybrano kofiguracje: %c\n",klawisz);
+
+//    scanf("%i",&klawisz);
+//    printf("\nklawisz = %i ",klawisz);
+//     while (kbhit() != 0) kla = getch();
+//     if(pojed == 0)
+//        klawisz = tolower(getch());
+//    printf("Klawisz = %i",&klawisz);
+
+
+     switch(klawisz)
+	{
+	case '`': break;   // '
+	case '1': konfigwym1 = 1; break;   // 1
+	case '2': konfigwym1 = 2; break;   // 2
+	case '3': konfigwym1 = 3; break;   // 3
+	case '4': konfigwym1 = 4; break;   // 4
+	case '5': konfigwym2 = 1; break;   // 5
+	case '6': konfigwym2 = 2; break;   // 6
+	case '7': konfigwym2 = 3; break;   // 7
+	case '8': konfigwym2 = 4; break;   // 8
+	case '9': break;   // 9
+	case '0': break;   // 0
+	case '-': break;   // -
+	case '=': break;   // +
+	case 'w': break;   // w
+	case 'e': wariant_ster = 0; break;   // e
+	case 'r': wariant_ster = 1; break;   // r
+    case 't': wariant_ster = 2; break;   // t
+	case 'y': wariant_ster = 3; break;   // r
+	case 'u': wariant_ster = 4; break;   // t
+	case 'i': break;   // y
+	case 'o': break;   // u
+	case 'p': break;   // p
+	case '[': break;   // [
+//	case ']': clrscr();
+//		  cleardevice();
+//		  osie();
+//		  break;   // ]
+	case 'a': Qsil = 0.0; break;   // a
+	case 's': Qsil = 0.05; break;   // s
+	case 'd': Qsil = 0.25; break;   // d
+	case 'f': Qsil = 0.50; break;   // f
+	case 'g': Qsil = 0.75; break;   // g
+	case 'h': Qsil = 1.0; break;   // h
+	case 'j': break;   // j
+//	case 'k': pojed = 0; break;   // k
+//	case 'l': pojed = 1; break;   // l
+	case ';': break;   // ;
+	case '\'':break;   // '
+
+	case 'z': q2 = 0.0;tempq2d = 10.0; break;   // z
+	case 'x': q2 = 0.1;tempq2d = 100.0; break;   // x
+	case 'c': q2 = 0.5;tempq2d = 100.0; break;   // c
+	case 'v': q2 = 1.0;tempq2d = 100.0; break;   // v
+	case 'b': trys = 1.0 * tsym; break;   // b
+	case 'n': trys = 5.0 * tsym; break;   // n
+	case 'm': trys = 10.0 * tsym; break;   // m
+	case ',': trys = 50.0 * tsym; break;    // ,
+	case '.': trys = 100.0 * tsym; break;    // .
+	case '/': trys = 500.0 * tsym; break;    // /
+	case'\\': trys = 1000.0 * tsym; break;    // \
+
+	default:  break;
+	};
+	}while(klawisz != 'w');
+};
+
+//////////////////////////////////////
+void pompa1(void)
+   {
+
+       q2 = wzmq2 * freq;
+//   if (Ts1 == 0.0)
+//      obr1 = freq;
+//   else
+//      obr1 = obr1 + (freq - obr1) * (1.0 - exp(-tsym / Ts1)); // inercja pierwszego rzedu
+//   if (Ts2 == 0.0)
+//      obr = obr1;
+//   else
+//      obr = obr + (obr1 - obr) * (1.0 - exp(-tsym / Ts2)); // inercja drugiego rzedu
+//
+//   if (obr <= obrmin)
+//      q2 = 0.0;
+//   else
+//      {
+////      pomA = -1.0;//+0.0*(obr-obrmin)/(1.0-obrmin);
+////      pomB = 0.0;//+0.0*(obr-obrmin)/(1.0-obrmin);
+////      pomC = 1.0 * (obr - obrmin) * (obr - obrmin) / ((1.0 - obrmin) * (1.0 - obrmin));//+0.0*(obr-obrmin)/(1.0-obrmin);
+////      pompom = (pomB - R2) * (pomB - R2) - 4.0 * pomA * pomC;  // ????
+////      q2 = 0.5 * (R2 - pomB - sqrt(pompom)) / pomA;
+//      q2 = wzmq2 * q2;
+//      };
+   };
+
+   //////////////////////////////////
+   void wymiennikA(void)
+   {
+   for (i = dlurura1oA; i > 0; i--)
+      {
+      temprura1oA[i] = (temprura1oA[i] * (Vrura1oA - q1A * tsym)+ temprura1oA[i-1] * q1A * tsym) / Vrura1oA;   // ZMIANA TEMPERATURY W POSZCZEGOLNYCH ODCINKACH RURY ????
+      };
+   temprura1oA[0] = (temprura1oA[0] * (Vrura1oA - q1A * tsym) + tempwym1A * q1A * tsym) / Vrura1oA;
+   tempwym1A = (tempwym1A * (Vwym1A - q1A * tsym) + temprura1dA[0] * q1A * tsym) / Vwym1A;
+
+   for (i = 0; i < dlurura1dA; i++)
+      {
+      temprura1dA[i] = (temprura1dA[i] * (Vrura1dA - q1A * tsym) + temprura1dA[i+1] * q1A * tsym) / Vrura1dA;
+      };
+   temprura1dA[dlurura1dA] = (temprura1dA[dlurura1dA] * (Vrura1dA - q1A * tsym) + tempq1dA * q1A * tsym) / Vrura1dA;
+   tempq1oA = temprura1oA[dlurura1oA];
+
+   for (i = dlurura2oA; i > 0 ; i--)
+      {
+      temprura2oA[i] = (temprura2oA[i] * (Vrura2oA - q2A * tsym) + temprura2oA[i-1] * q2A * tsym) / Vrura2oA;
+      };
+   temprura2oA[0] = (temprura2oA[0] * (Vrura2oA - q2A * tsym) + tempwym2A * q2A * tsym) / Vrura2oA;
+   tempwym2A = (tempwym2A * (Vwym2A - q2A * tsym) + temprura2dA[0] * q2A * tsym) / Vwym2A;
+
+   for (i = 0;i < dlurura2dA;i++)
+      {
+      temprura2dA[i] = (temprura2dA[i] * (Vrura2dA - q2A * tsym) + temprura2dA[i+1] * q2A * tsym) / Vrura2dA;
+      };
+   temprura2dA[dlurura2dA] = (temprura2dA[dlurura2dA] * (Vrura2dA - q2A * tsym) + tempq2dA * q2A * tsym) / Vrura2dA;
+   tempq2oA = temprura2oA[dlurura2oA];
+
+   C1 = Vwym1A * tempwym1A * a1A;  /// ???? cieplo wlasciwe
+   C2 = Vwym2A * tempwym2A * a2A;
+//   dC=lambdaA*(tempwym2A-tempwym1A)*tsym;   		        // tsym=0.01
+//   dC=1.09553*lambdaA*(tempwym2A-tempwym1A)*exp(-tsym)*tsym;  // tsym=0.1;
+   dC = 1.1205 * lambdaA * (tempwym2A - tempwym1A) * exp(-tsym) * tsym;     // tsym=0.125;  ruch ciepla ????? 1.1205 <- odleglosc
+
+   C2 -= dC;
+   C1 += dC;
+
+   tempwym1A = C1 / (Vwym1A * a1A);
+   tempwym2A = C2 / (Vwym2A * a2A);
+   };
+
+//////////////////////////////////////
+//void wymiennikB(void)
+//   {
+//   for (i = dlurura1oB ; i > 0 ; i--)
+//      {
+//      temprura1oB[i] = (temprura1oB[i] * (Vrura1oB - q1B * tsym) + temprura1oB[i-1] * q1B * tsym) / Vrura1oB;
+//      };
+//   temprura1oB[0] = (temprura1oB[0] * (Vrura1oB - q1B * tsym) + tempwym1B * q1B * tsym) / Vrura1oB;
+//   tempwym1B = (tempwym1B * (Vwym1B - q1B * tsym) + temprura1dB[0] * q1B * tsym) / Vwym1B;
+//   for (i = 0; i < dlurura1dB; i++)
+//      {
+//      temprura1dB[i] = (temprura1dB[i] * (Vrura1dB - q1B * tsym) + temprura1dB[i+1] * q1B * tsym) / Vrura1dB;
+//      };
+//   temprura1dB[dlurura1dB] = (temprura1dB[dlurura1dB] * (Vrura1dB - q1B * tsym) + tempq1dB * q1B * tsym) / Vrura1dB;
+//   tempq1oB = temprura1oB[dlurura1oB];
+//
+//
+//   for (i = dlurura2oB ; i > 0 ; i--)
+//      {
+//      temprura2oB[i] = (temprura2oB[i] * (Vrura2oB - q2B * tsym) + temprura2oB[i-1] * q2B * tsym) / Vrura2oB;
+//      };
+//   temprura2oB[0] = (temprura2oB[0] * (Vrura2oB - q2B * tsym) + tempwym2B * q2B * tsym) / Vrura2oB;
+//   tempwym2B = (tempwym2B * (Vwym2B - q2B * tsym) + temprura2dB[0] * q2B * tsym) / Vwym2B;
+//   for (i = 0 ; i < dlurura2dB ; i++)
+//      {
+//      temprura2dB[i] = (temprura2dB[i] * (Vrura2dB - q2B * tsym) + temprura2dB[i+1] * q2B * tsym) / Vrura2dB;
+//      };
+//   temprura2dB[dlurura2dB] = (temprura2dB[dlurura2dB] * (Vrura2dB - q2B * tsym) + tempq2dB * q2B * tsym) / Vrura2dB;
+//   tempq2oB = temprura2oB[dlurura2oB];
+//
+//   C1 = Vwym1B * tempwym1B * a1B;
+//   C2 = Vwym2B * tempwym2B * a2B;
+//   dC=lambdaB*(tempwym2B-tempwym1B)*tsym;                     // tsym=0.01
+//   dC=1.09553*lambdaB*(tempwym2B-tempwym1B)*exp(-tsym)*tsym;  // tsym=0.1
+//   dC = 1.1205 * lambdaB * (tempwym2B - tempwym1B) * exp(-tsym) * tsym;     // tsym=0.125
+//
+//   C2 -= dC;
+//   C1 += dC;
+//
+//   tempwym1B = C1 / (Vwym1B * a1B);
+//   tempwym2B = C2 / (Vwym2B * a2B);
+//
+//   };
+
+//////////////////////////////////////
+//void regulator_q1(void)
+//   {
+//   xregwew = (xreg - xregmin) / (xregmax - xregmin); // przeskalowanie wartosci regulatora
+//   xzadwew = (xzad - xregmin) / (xregmax - xregmin); // przeskalowanie wartosci zadanej
+//
+//   E = xzadwew - xregwew; // sygnal bledu
+//
+//   Up = E * Kp; // sygnal sterujacy ( P )
+//   dE = E - popE; // chwilowy synal bledu - czy nie powinno sie podzielic ??
+//   Ud1 = dE * Kp * Td / Tp; // sygnal sterujacy z czlonem rozniczkujacym
+//   popE = E; // poprzednia wartosc sygnalu bledu
+//   Ud = Ud1; // przypisanie wartosci sygnalu sterujacego
+//
+//   if (nasycD) // uniemozliwienie wyjscia poza wartosci graniczne sygnalu czlonu rozniczkujacego
+//      {
+//      if(Ud > Udmax)
+//        Ud = Udmax;
+//	  else
+//	  {
+//	    if (Ud < Udmin)
+//	    Ud = Udmin;
+//	  };
+//      };
+//   if (Ti == 0.0)   // wylaczenie czlonu calkujacego  ??
+//      Ui = 0.0;
+//   else
+//      {
+//      dUi = E * Tp * Kp / Ti;
+//      Ui += dUi; // przyrost wartosci uchybu
+//
+//      switch(antiwindup)
+//	  {
+//	  case 0: break;
+//	  case 1: if (Ui > (Umax - Up - Ud))
+//		          Ui = Umax - Up - Ud;  // zmniejszam wartosc zliczonego uchybu
+//		      else
+//		          if (Ui < (Umin - Up - Ud))
+//			          Ui = Umin - Up - Ud;
+//		      break;
+//	  case 2: if (Ui > Uimax)
+//		          Ui = Uimax; // obnizenie do maksymalnej wartosci
+//		      else
+//		          if (Ui < Uimin)
+//			          Ui = Uimin;
+//		      break;
+//	  default: break;
+//	  };
+//    };
+//
+//   uregwew = Up + Ud + Ui;
+//   if (uregwew > Umax)
+//      uregwew = Umax;
+//      else
+//      if (uregwew < Umin)
+//      uregwew = Umin;
+//   ureg = uregwew;
+//
+//   if (inverse)
+//      {
+//      ureg = Umax - (ureg - Umin);
+//      };
+//   };
+
+
+//////////////////////////////////////// REGULATOR OBIEGU CHLODZONEGO
+void regq2(void)
+   {
+   q2 = 0.5 + 0.5 * q2min + 0.10 * (tempq2d - tempq2dzad); // regulacja przeplywu q2
+   if (q2 > 1.0)
+      q2 = 1.0;
+      else
+      {
+      if (q2 < q2min)
+        q2 = q2min;
+      };
+   };
+
+//////////////////////////////////////////////////
+
+int main()
+{
+// randomize();
+  // clrscr();
+  // Initialize();
+  // cleardevice();
+  klawisz = ' ';
+  // osie();
+
+  int x = 0;
+  czas = 0.0;
+
+   if (inverse)
+     Ui = Umax;
+     else
+     Ui = Umin;
+
+//------------------------------
+
+  q1 = q1min;
+  tempq1d = temppocz;
+  tempq1o = temppocz;
+
+//  Qsil = 0.0;
+  q2 = q2min;
+  tempq2d = temppocz;
+  tempq2o = temppocz;
+
+  tempq2osil1 = temppocz;
+  tempq2osil2 = temppocz;
+
+  for (i=0;i<501;i++) /// przypisanie wartosci poczatkowych
+     {
+
+     temprura1dA[i] = (temprura1oA[i] = temppocz);
+     temprura2dA[i] = (temprura2oA[i] = temppocz);
+//     temprura2dA[i]=(temprura2oA[i]=tempq2d);
+
+     temprura1dB[i] = (temprura1oB[i] = temppocz);
+     temprura2dB[i] = (temprura2oB[i] = temppocz);
+//     temprura2dB[i]=(temprura2oB[i]=tempq2d);
+
+     };
+
+  tempwym1A = (tempq1dA = (tempq1oA = temppocz));
+  tempwym2A = (tempq2dA = (tempq2oA = temppocz));
+//  tempwym2A=(tempq2dA=(tempq2oA=tempq2d));
+
+  tempwym1B = (tempq1dB = (tempq1oB = temppocz));
+  tempwym2B = (tempq2dB = (tempq2oB = temppocz));
+//  tempwym2B=(tempq2dB=(tempq2oB=tempq2d));
+
+  tempq2pomA = temppocz;
+  tempq2pomB = temppocz;
+  tempq2pom = temppocz;
+
+/// REZYSTANCJA OBIEGOW
+  R1A = Rwym1A + (dlurura1dA * Rrura1dA) + (dlurura1oA * Rrura1oA);
+  R2A = Rwym2A + (dlurura2dA * Rrura2dA) + (dlurura2oA * Rrura2oA);
+
+  R1B = Rwym1B + (dlurura1dB * Rrura1dB) + (dlurura1oB * Rrura1oB);
+  R2B = Rwym2B + (dlurura2dB * Rrura2dB) + (dlurura2oB * Rrura2oB);
+
+//============
+  do
+     {
+
+//    klawisz = tolower(getchar());
+     //rysunek();
+//     klawiatura();
+
+     menu();
+     if(rejestruj) nadysk();
+
+//======================= OBIEKT ==============  sposob polaczenia obiegow
+
+     switch (konfigwym1)
+	{
+	case 1:  R1 = R1A;               break; // w uzyciu tylko wymiennik A
+	case 2:
+	case 3:  R1 = R1A + R1B;           break; // polaczenie szeregowe
+	case 4:  R1 = R1A * R1B / (R1A + R1B); break; // polaczenie rownolegle wymiennikow
+	default: R1 = R1A;               break;
+	};
+
+     switch (konfigwym2) /// w sklad drugiego obiegu wchodzi silnik ??? Rsil
+	{
+	case 1:  R2 = Rsil + R2A;               break;
+	case 2:
+	case 3:  R2 = Rsil + R2A + R2B;           break;
+	case 4:  R2 = Rsil + R2A * R2B / (R2A + R2B); break;
+	default: R2 = Rsil + R2A;               break;
+	};
+
+     Tsil1 = Tsil10 / (1.0 + 0.10 * q2);
+     Tsil2 = Tsil20 / (0.1 + 1.0 * q2);
+     Tsil3 = Tsil30 / (0.1 + 1.0 * q2);
+
+     Qsil1 = Qsil1 + (Qsil - Qsil1) * (1.0-exp(-tsym/Tsil3));
+
+     tempq2osil1 = (40 * Qsil + q2 * tempq2o) / (q2);
+
+    if (Tsil1 > 0)
+        tempq2osil2 = tempq2osil2 + (tempq2osil1 - tempq2osil2) * (1.0-exp(-tsym/Tsil1));
+	else
+        tempq2osil2 = tempq2osil1;
+
+    if (Tsil2 > 0.0)
+        tempq2d = tempq2d + (tempq2osil2 - tempq2d) * (1.0-exp(-tsym/Tsil2));
+	else
+        tempq2d = tempq2osil2;
+
+
+   tempq2d = (tempq2d * (Vsil - q2 * tsym) + Qsil * 40.0 * tsym + tempq2o * q2 * tsym) / Vsil; // temp. wody z silnika
+
+   if (tempq2d > 100.0)
+    tempq2d = 100.0;
+   else
+    if (tempq2d < 0)
+    tempq2d = 0;
+
+
+/// sterowanie przeplywem q1 (chlodzacym)
+    switch (typregq1)
+    {
+        case 0:
+            q1 = 1.0;
+            break;
+        case 1:
+          q1 = Kwar1 * temprura1dA[dlurura1dA] / 100.0; // regulacja na podstawie temp. wody zaburtowej wplywajacej do 1 obiegu wymiennika A
+		  if (q1 > 1.0)
+		      q1 = 1.0;
+          else
+          {
+              if (q1 < q2min)
+                  q1 = q2min;
+          };
+		  break;
+        case 2:
+          q1 = Kwar2 * Qsil1;
+		  if (q1 > 1.0)
+		      q1 = 1.0;
+          else
+          {
+		     if (q1 < q2min)
+			     q1 = q2min;
+          };
+		  break;
+        case 3:
+          q1 = (a + b * Qsil1) * tempq2dA / 100.0;
+          if (q1 > 1.0)
+		      q1 = 1.0;
+          else
+          {
+              if (q1 < q2min)
+                  q1 = q2min;
+          };
+		  break;
+        case 4:
+            /// 2 PID
+          break;
+          default: typregq1 = 0;
+    };
+
+/// sterowanie przeplywem q2 (chlodzonym)
+
+
+//     switch (typregq2)      // wg tempq2d
+//	{
+//	case 0 :
+//	    // obroty pompy rosna przy wzroscie temp. wody wplywajacej do bloku silnika; CZEMU tempq2d SKORO DO SILNIKA WPLYWA q1
+//		  if (tempq2d <= tempq2gr1)
+//		     q2 = q21;
+//          else
+//		     {
+//		     if (tempq2d <= tempq2gr2)
+//			     q2 = q22;
+//			 else
+//			 {
+//			     if (tempq2d <= tempq2gr3)
+//			         q2 = q23;
+//                 else
+//			         q2 = q24;
+//			 };
+//		     }
+//		  break;
+//	case 1:    // obroty pompy2 rosna wraz z bledem temp., wzmq2 - wspolczynnik
+//		  q2 = wzmq2 * (tempq2d - tempq2dzad);  // co to jest wzmq2 ???
+//		  if (q2 > 1.0)
+//		      q2 = 1.0;
+//          else
+//          {
+//		     if (q2 < q2min)
+//			     q2 = q2min;
+//          };
+//		  break;
+//	case 2:          // przeplyw zalezy od ciepla silnika (wprost proporcjonalnie)
+//		  q2 = 1.0 * Qsil;
+//		  if (q2 > 1.0)
+//		      q2 = 1.0;
+//          else
+//          {
+//		     if (q2 < q2min)
+//			     q2 = q2min;
+//          };
+//		  break;
+//	case 3:                // regulacja przeplywu q2 zalezna od ciepla silnika
+//		  q2 = q2min + 1.0 * (1.0 - q2min) * Qsil;
+//		  if (q2 > 1.0)
+//		      q2 = 1.0;
+//          else
+//          {
+//              if (q2 < q2min)
+//                  q2 = q2min;
+//          };
+//		  break;
+//	case 4:
+//		  regq2();
+//		  if (q2 > 1.0)
+//		      q2 = 1.0;
+//          else
+//          {
+//              if (q2 < q2min)
+//                  q2 = q2min;
+//          };
+//		  break;
+//    case 5:
+//		  q2 = Kwar1 * temprura2dA[dlurura2dA] / 100.0; // regulacja na podstawie temp. wody zaburtowej wplywajacej do wymiennika
+//		  if (q2 > 1.0)
+//		      q2 = 1.0;
+//          else
+//          {
+//              if (q2 < q2min)
+//                  q2 = q2min;
+//          };
+//		  break;
+//    case 6:
+//          q2 = (a + b * Qsil) * tempq2dA / 100.0; // NA RAZIE tempq2osil1 oraz N SIE NIE ZMIENIAja, tempq1oA temp. wody wplywajacej do silnika
+//          if (q2 > 1.0)
+//		      q2 = 1.0;
+//          else
+//          {
+//              if (q2 < q2min)
+//                  q2 = q2min;
+//          };
+//          break;
+//    case 7:
+//        q2 = 1.0;
+//        break;
+//	default: typregq2 = 7;  // maksymalny przeplyw caly czas
+//		  break;
+//	};
+
+   falownik1();
+   pompa1();
+
+     switch (konfigwym1)
+	{
+	case 1:  q1A = q1;  tempq1dA = tempq1d;  // mamy tylko wymiennik A
+		     q1B = 0.0; tempq1dB = temppocz;
+		     break;
+	case 2:  q1A = q1;  tempq1dA = tempq1d;  // z A plynie do B
+		     q1B = q1;  tempq1dB = tempq1oA;
+		     break;
+	case 3:  q1B = q1;  tempq1dB = tempq1d;  // z B do A
+		     q1A = q1;  tempq1dA = tempq1oB;
+		     break;
+	case 4:  q1A = q1 * R1B / (R1A + R1B); tempq1dA = tempq1d;  // polaczenie rownolegle w obiegu pierwszym
+		     q1B = q1 - q1A;               tempq1dB = tempq1d;
+		     break;
+	default: q1A = q1;  tempq1dA = tempq1d; // domyslnie tylko 1 wymiennik
+		     q1B = 0.0; tempq1dB = temppocz;
+		     break;
+	};
+
+     switch (konfigwym2)
+	{
+	case 1:  q2A = q2;  tempq2dA = tempq2d;
+		     q2B = 0.0; tempq2dB = temppocz;
+		     break;
+	case 2:  q2A = q2;  tempq2dA = tempq2d;
+		     q2B = q2;  tempq2dB = tempq2oA;
+		     break;
+	case 3:  q2B = q2;  tempq2dB = tempq2d;
+		     q2A = q2;  tempq2dA = tempq2oB;
+		     break;
+	case 4:  q2A = q2 * R2B / (R2A + R2B); tempq2dA = tempq2d;
+		     q2B = q2 - q2A;               tempq2dB = tempq2d;
+		     break;
+	default: q2A = q2;  tempq2dA = tempq2d;
+		     q2B = 0.0; tempq2dB = temppocz;
+		     break;
+	};
+
+//     if ((konfigwym1 > 1)||(konfigwym2 > 1)) // tylko jesli oba sa rowne 1 to uzywany jest jedynie wymiennik A
+//	 wymiennikB();
+     wymiennikA();
+
+     switch (konfigwym1)
+	{
+	case 1:  tempq1o = tempq1oA;  // temp. odplywu obiegu pierwszego jest na wyjsciu wymiennika A, bo tylko on jest uzywany
+		     break;
+	case 2:  tempq1o = tempq1oB; // temp. odplywu obiegu pierwszego jest na wyjsciu wymiennika B, bo jest ostanim wymiennikiem na drodze do silnika
+		     break;
+	case 3:  tempq1o = tempq1oA; // temp. odplywu obiegu pierwszego jest na wyjsciu wymiennika A, bo kierunek przeplywu jest z B do A
+		     break;
+	case 4:  if (q1 > 0.0)
+		         tempq1o = (tempq1oA * q1A + tempq1oB * q1B) / q1; // polaczenie rownolegle wymiennikow
+		     break;
+	default: tempq1o = tempq1oA;
+		     break;
+	};
+
+     switch (konfigwym2)
+	{
+	case 1:  tempq2o = tempq2oA;
+		     break;
+	case 2:  tempq2o = tempq2oB;
+		     break;
+	case 3:  tempq2o = tempq2oA;
+		     break;
+	case 4:  if (q2 > 0)
+		         tempq2o = (tempq2oA * q2A + tempq2oB * q2B) / q2;
+		     break;
+	default: tempq2o = tempq2oA;
+		     break;
+	};
+
+//======================= REGULACJA ===========
+
+     switch (konfigwym2)
+	{
+	case 1:  tempq2pom = temprura2dA[dlupom2A]; //temprura2oA[dlupom2A];
+		 break;
+	case 2:  tempq2pom = temprura2oB[dlupom2B];
+		 break;
+	case 3:  tempq2pom = temprura2oA[dlupom2A];
+		 break;
+	case 4:  if (q2 > 0)
+		         tempq2pom = (temprura2oA[dlupom2A] * q2A + temprura2oB[dlupom2B] * q2B) / q2;
+		 break;
+	default: tempq2pom = temprura2oA[dlupom2A];
+		 break;
+	};
+
+
+     if (czasreg >= Tp)
+	{
+	     czasreg = 0.0;
+	     if (typreg == 1)
+	         {xreg = tempq2pom;}
+         else
+             {xreg = tempq2d;}
+ //        regulator_q1();
+    pid_1();
+	};
+
+//=============================================
+
+    if (q2A == 0.0)
+       tauA = 99999999.9;
+    else
+       tauA = (dlurura2oA + 1.0) * Vrura2oA / q2A;
+
+    if (q2B == 0.0)
+       tauB = 99999999.9;
+    else
+       tauB = (dlurura2oB + 1.0) * Vrura2oB / q2B;
+
+
+     czas += tsym;
+     czasreg += tsym;
+ //    czasrys += tsym;
+
+     }
+     while (klawisz != 'q');
+//     restorecrtmode();
+    return 0;
+}
